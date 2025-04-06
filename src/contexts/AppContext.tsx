@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { walletDB, Wallet, Activity } from '@/utils/database';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { getTokenBalance } from '@/utils/web3';
 import { TOKEN_ADDRESSES } from '@/utils/web3';
 

@@ -1,6 +1,6 @@
 
 import { ethers } from 'ethers';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 // Network configuration
 export const NETWORK_CONFIG = {
