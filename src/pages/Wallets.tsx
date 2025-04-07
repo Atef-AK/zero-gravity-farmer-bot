@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { AddWalletForm } from "@/components/AddWalletForm";
-import { useState, MouseEvent } from "react";
+import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 
 export default function Wallets() {
@@ -13,7 +13,7 @@ export default function Wallets() {
   
   const hasSelectedWallets = selectedWallets.length > 0;
 
-  const handleRefresh = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleRefresh = () => {
     refreshWalletBalances();
   };
 

@@ -14,6 +14,7 @@ import Statistics from "./pages/Statistics";
 import FileUpload from "./pages/actions/FileUpload";
 import DomainRegistration from "./pages/actions/DomainRegistration";
 import NFTMinting from "./pages/actions/NFTMinting";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,7 +36,7 @@ const App = () => (
               <Route path="actions/upload" element={<FileUpload />} />
               <Route path="actions/domains" element={<DomainRegistration />} />
               <Route path="actions/nfts" element={<NFTMinting />} />
-              <Route path="settings" element={<Dashboard />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
