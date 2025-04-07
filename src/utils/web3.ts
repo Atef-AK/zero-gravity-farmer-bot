@@ -1,4 +1,3 @@
-
 import { ethers } from 'ethers';
 import { toast } from 'sonner';
 
@@ -15,7 +14,7 @@ export const NETWORK_CONFIG = {
 // Token contract addresses - updatable via settings
 export const TOKEN_ADDRESSES = {
   A0GI: '0x0000000000000000000000000000000000000000', // Native token
-  USDT: '0x9a87c2412d500343c073e5ae5394e3be3c3fce50',
+  USDT: '0x9a87c2412d500343c073e5ae5394e3be3874f76b',
   BTC: '0x1e0d871472973c562650e991ed8006549f8cbefc',
   ETH: '0xce830d0905e0f7a9b300401729761579c5fb6bd6'
 };
@@ -32,7 +31,9 @@ export const CONTRACT_ADDRESSES = {
   flow: '0x0460aA47b41a66694c0a73f667a1b795A5ED3556',
   mine: '0x1785c8683b3c527618eFfF78d876d9dCB4b70285',
   market: '0x20f7e27cD0FaBD87F96afC4E83A88a47E9Ce4689',
-  reward: '0x0496D0817BD8519e0de4894Dc379D35c35275609'
+  reward: '0x0496D0817BD8519e0de4894Dc379D35c35275609',
+  nftERC721: '0x8dde0744e3e94a97d3e69ae09cbafb2140c3b3a1',
+  nftERC1155: '0x7f9c06b9db2831de3717db31ee818cc5cd1097a0'
 };
 
 // APIs endpoints
@@ -123,10 +124,35 @@ export const ROUTER_ABI = [
   'function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts)'
 ];
 
+// NFT ABIs
+export const NFT_ERC721_ABI = [
+  'function mint(string memory tokenURI) external returns (uint256)',
+  'function tokenURI(uint256 tokenId) external view returns (string memory)',
+  'function balanceOf(address owner) external view returns (uint256)',
+  'function ownerOf(uint256 tokenId) external view returns (address)',
+  'function transferFrom(address from, address to, uint256 tokenId) external'
+];
+
+export const NFT_ERC1155_ABI = [
+  'function mint(address to, uint256 id, uint256 amount, bytes memory data) external',
+  'function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) external',
+  'function balanceOf(address account, uint256 id) external view returns (uint256)',
+  'function balanceOfBatch(address[] memory accounts, uint256[] memory ids) external view returns (uint256[] memory)'
+];
+
 // Create a provider instance
 export const getProvider = () => {
   try {
-    return new ethers.providers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
+    // Check if settings are stored in localStorage
+    const networkConfig = localStorage.getItem('network_config');
+    let rpcUrl = NETWORK_CONFIG.rpcUrl;
+    
+    if (networkConfig) {
+      const parsedConfig = JSON.parse(networkConfig);
+      rpcUrl = parsedConfig.rpcUrl || rpcUrl;
+    }
+    
+    return new ethers.providers.JsonRpcProvider(rpcUrl);
   } catch (error) {
     console.error('Failed to create provider:', error);
     toast.error('Failed to connect to the network');
@@ -186,14 +212,49 @@ export const getTokenBalance = async (tokenAddress: string, walletAddress: strin
   }
 };
 
+// Get wallet transaction count and stats
+export const getWalletStats = async (walletAddress: string) => {
+  try {
+    const provider = getProvider();
+    if (!provider) return { txCount: 0, nftCount: 0 };
+    
+    const txCount = await provider.getTransactionCount(walletAddress);
+    
+    // For a real implementation, this would check NFT contracts
+    // For this demo, we'll simulate NFT counts
+    let nftCount = 0;
+    
+    try {
+      const erc721Contract = new ethers.Contract(
+        CONTRACT_ADDRESSES.nftERC721,
+        NFT_ERC721_ABI,
+        provider
+      );
+      const nftBalance = await erc721Contract.balanceOf(walletAddress);
+      nftCount += parseInt(nftBalance.toString());
+    } catch (error) {
+      console.error("Error checking ERC721 NFT balance:", error);
+    }
+    
+    return { txCount, nftCount };
+  } catch (error) {
+    console.error('Failed to get wallet stats:', error);
+    return { txCount: 0, nftCount: 0 };
+  }
+};
+
 // Solve captcha using 2captcha service
 export const solveCaptcha = async () => {
   try {
+    // Get CAPTCHA config from settings
+    const captchaConfig = localStorage.getItem('captcha_config');
+    const parsedConfig = captchaConfig ? JSON.parse(captchaConfig) : CAPTCHA_CONFIG;
+    
+    console.log('Solving captcha with 2captcha...');
+    console.log('Using site key:', parsedConfig.siteKey);
+    
     // In a real implementation, this would make an actual API call to 2captcha
     // For demo, simulate solving captcha
-    console.log('Solving captcha with 2captcha...');
-    
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Return mock response
@@ -326,26 +387,89 @@ export const transferTokens = async (
   }
 };
 
-// Mint NFT
-export const mintNFT = async (privateKey: string) => {
+// Estimate Gas Fee for NFT minting
+export const estimateGasFee = async (privateKey: string, nftType = "ERC721") => {
   try {
-    console.log('Minting NFT');
+    console.log('Estimating gas fee for NFT minting...');
     
     const wallet = createWallet(privateKey);
     if (!wallet) throw new Error("Invalid wallet");
     
+    const contractAddress = nftType === "ERC721" 
+      ? CONTRACT_ADDRESSES.nftERC721 
+      : CONTRACT_ADDRESSES.nftERC1155;
+    
+    const abi = nftType === "ERC721" ? NFT_ERC721_ABI : NFT_ERC1155_ABI;
+    
     // For real implementation:
-    // 1. Create contract interface to the NFT contract
-    // 2. Call mint function
+    // 1. Create contract interface
+    // 2. Estimate gas for the mint function
+    // 3. Calculate gas fee
+    
+    // Simulate blockchain delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Return simulated gas estimate
+    const baseFee = nftType === "ERC721" ? 0.012 : 0.018;
+    const randomVariation = Math.random() * 0.005;
+    return (baseFee + randomVariation).toFixed(6);
+  } catch (error) {
+    console.error('Failed to estimate gas fee:', error);
+    throw new Error(`Gas estimation failed: ${error.message}`);
+  }
+};
+
+// Mint NFT with enhanced options
+export const mintNFT = async (privateKey: string, nftData = {}) => {
+  try {
+    console.log('Minting NFT with data:', nftData);
+    
+    const wallet = createWallet(privateKey);
+    if (!wallet) throw new Error("Invalid wallet");
+    
+    const { type = "ERC721", name = "0G NFT", description = "" } = nftData;
+    
+    const contractAddress = type === "ERC721" 
+      ? CONTRACT_ADDRESSES.nftERC721 
+      : CONTRACT_ADDRESSES.nftERC1155;
+    
+    // For real implementation:
+    // 1. If there's image data, upload it to IPFS or similar
+    // 2. Create metadata JSON with name, description, image link
+    // 3. Create contract interface to the NFT contract
+    // 4. Call appropriate mint function based on NFT type
     
     // Simulate minting delay
     await new Promise(resolve => setTimeout(resolve, 3000));
     
+    const tokenId = Math.floor(Math.random() * 10000);
+    const txHash = `0x${Math.random().toString(16).substring(2, 50)}`;
+    
+    // Add to activity history
+    try {
+      const existingActivities = JSON.parse(localStorage.getItem('activities') || '[]');
+      existingActivities.unshift({
+        type: 'nft_mint',
+        timestamp: new Date().toISOString(),
+        address: wallet.address,
+        details: {
+          txHash,
+          tokenId,
+          contractAddress,
+          nftType: type
+        }
+      });
+      localStorage.setItem('activities', JSON.stringify(existingActivities.slice(0, 100)));
+    } catch (err) {
+      console.error("Failed to save activity:", err);
+    }
+    
     // Return mock response
     return {
       success: true,
-      txHash: `0x${Math.random().toString(16).substring(2, 50)}`,
-      tokenId: Math.floor(Math.random() * 10000)
+      txHash,
+      tokenId,
+      contractAddress
     };
   } catch (error) {
     console.error('Failed to mint NFT:', error);

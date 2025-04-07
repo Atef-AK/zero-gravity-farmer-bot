@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { walletDB, Wallet, Activity } from '@/utils/database';
 import { toast } from 'sonner';
-import { getTokenBalance } from '@/utils/web3';
+import { getTokenBalance, getWalletStats } from '@/utils/web3';
 import { TOKEN_ADDRESSES } from '@/utils/web3';
 
 interface WalletWithBalances extends Wallet {
@@ -11,6 +11,10 @@ interface WalletWithBalances extends Wallet {
     USDT: string;
     BTC: string;
     ETH: string;
+  };
+  stats?: {
+    txCount: number;
+    nftCount: number;
   };
   isLoading?: boolean;
 }
@@ -30,6 +34,7 @@ interface AppContextType {
   deselectAllWallets: () => void;
   setWalletActive: (id: number, active: boolean) => void;
   refreshWalletBalances: (walletIds?: number[]) => void;
+  refreshWalletStats: (walletIds?: number[]) => void;
   startAllTasks: () => void;
   stopAllTasks: () => void;
 }
@@ -57,6 +62,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       // Load balances for all wallets
       refreshWalletBalances();
+      
+      // Load wallet stats
+      refreshWalletStats();
     } catch (error) {
       console.error('Failed to load wallets:', error);
       toast.error('Failed to load wallet data');
@@ -82,6 +90,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       // Load balances for the new wallet
       refreshWalletBalances([newWallet.id]);
+      
+      // Load stats for the new wallet
+      refreshWalletStats([newWallet.id]);
     } catch (error) {
       console.error('Failed to add wallet:', error);
       toast.error(`Failed to add wallet: ${error.message}`);
@@ -172,6 +183,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       if (active) {
         toast.success(`Started bot for wallet`);
+        executeWalletTasks([id]);
       } else {
         toast.info(`Stopped bot for wallet`);
       }
@@ -249,6 +261,93 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
     }
   };
+  
+  const refreshWalletStats = async (walletIds?: number[]) => {
+    try {
+      // Get wallets to update
+      const walletsToUpdate = walletIds
+        ? wallets.filter(w => walletIds.includes(w.id))
+        : wallets;
+      
+      // Update stats in parallel
+      const updatedWallets = await Promise.all(
+        walletsToUpdate.map(async wallet => {
+          try {
+            // Get on-chain stats
+            const { txCount, nftCount } = await getWalletStats(wallet.address);
+            
+            return {
+              ...wallet,
+              stats: {
+                txCount,
+                nftCount
+              }
+            };
+          } catch (error) {
+            console.error(`Failed to get stats for wallet ${wallet.address}:`, error);
+            return {
+              ...wallet,
+              stats: wallet.stats || { txCount: 0, nftCount: 0 }
+            };
+          }
+        })
+      );
+      
+      // Update state
+      setWallets(prev => {
+        const updated = [...prev];
+        for (const wallet of updatedWallets) {
+          const index = updated.findIndex(w => w.id === wallet.id);
+          if (index >= 0) {
+            updated[index] = wallet;
+          }
+        }
+        return updated;
+      });
+    } catch (error) {
+      console.error('Failed to refresh wallet stats:', error);
+    }
+  };
+
+  const executeWalletTasks = async (walletIds: number[]) => {
+    try {
+      const walletsToRun = wallets.filter(w => walletIds.includes(w.id));
+      
+      if (walletsToRun.length === 0) return;
+      
+      // In a real implementation, this would execute actual tasks
+      for (const wallet of walletsToRun) {
+        console.log(`Executing tasks for wallet ${wallet.address}`);
+        
+        // Simulate some task execution
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Update activity log
+        const existingActivities = JSON.parse(localStorage.getItem('activities') || '[]');
+        existingActivities.unshift({
+          type: 'task_execution',
+          timestamp: new Date().toISOString(),
+          address: wallet.address,
+          details: {
+            status: 'success',
+            tasks: ['swap', 'claim', 'mint']
+          }
+        });
+        localStorage.setItem('activities', JSON.stringify(existingActivities.slice(0, 100)));
+      }
+      
+      // Refresh balances and stats after tasks
+      await refreshWalletBalances(walletIds);
+      await refreshWalletStats(walletIds);
+      
+      // Reload activities
+      loadActivities();
+      
+    } catch (error) {
+      console.error('Failed to execute wallet tasks:', error);
+      toast.error(`Task execution error: ${error.message}`);
+    }
+  };
 
   const startAllTasks = () => {
     try {
@@ -273,6 +372,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       setIsRunning(true);
       toast.success(`Started tasks for ${selectedIds.length} wallets`);
+      
+      // Execute tasks immediately
+      executeWalletTasks(selectedIds);
     } catch (error) {
       console.error('Failed to start tasks:', error);
       toast.error(`Failed to start tasks: ${error.message}`);
@@ -328,6 +430,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deselectAllWallets,
     setWalletActive,
     refreshWalletBalances,
+    refreshWalletStats,
     startAllTasks,
     stopAllTasks
   };
