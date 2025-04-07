@@ -65,14 +65,14 @@ export default {
           primary: "#9b87f5",
           secondary: "#7E69AB",
           accent: "#33C3F0",
+          background: "#1A1F2C", // Adding the background color
+          foreground: "#ffffff", // Adding foreground color for text
           warning: "#FFAB2D",
+          success: "#4CAF50", // Adding success color 
+          error: "#E53935",   // Adding error color
+          muted: "#6c757d",   // Adding muted color
           card: "#1A1F2C"
         },
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
         "accordion-down": {
@@ -83,10 +83,15 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "pulse-subtle": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
       },
     },
   },

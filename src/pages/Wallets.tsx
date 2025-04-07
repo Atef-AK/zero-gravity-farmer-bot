@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { AddWalletForm } from "@/components/AddWalletForm";
-import { useState } from "react";
+import { useState, MouseEvent } from "react";
 import { useApp } from "@/contexts/AppContext";
 
 export default function Wallets() {
@@ -12,6 +12,10 @@ export default function Wallets() {
   const [addWalletOpen, setAddWalletOpen] = useState(false);
   
   const hasSelectedWallets = selectedWallets.length > 0;
+
+  const handleRefresh = (e: MouseEvent<HTMLButtonElement>) => {
+    refreshWalletBalances();
+  };
 
   return (
     <div className="space-y-6">
@@ -25,7 +29,7 @@ export default function Wallets() {
             variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={refreshWalletBalances}
+            onClick={handleRefresh}
           >
             <RefreshCw size={16} /> Refresh Balances
           </Button>

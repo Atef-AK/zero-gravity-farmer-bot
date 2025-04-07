@@ -6,11 +6,24 @@ import { WalletList } from "@/components/WalletList";
 import { AdvancedTaskConfigurator } from "@/components/AdvancedTaskConfigurator";
 import { useApp } from "@/contexts/AppContext";
 import { Play, PauseCircle, RefreshCw } from "lucide-react";
+import { MouseEvent } from "react";
 
 export default function Dashboard() {
   const { startAllTasks, stopAllTasks, refreshWalletBalances, isRunning, selectedWallets } = useApp();
   
   const hasSelectedWallets = selectedWallets.length > 0;
+  
+  const handleRefresh = (e: MouseEvent<HTMLButtonElement>) => {
+    refreshWalletBalances();
+  };
+  
+  const handleStartTasks = (e: MouseEvent<HTMLButtonElement>) => {
+    startAllTasks();
+  };
+  
+  const handleStopTasks = (e: MouseEvent<HTMLButtonElement>) => {
+    stopAllTasks();
+  };
 
   return (
     <div className="space-y-6">
@@ -18,7 +31,7 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-2">
           <Button 
-            onClick={refreshWalletBalances} 
+            onClick={handleRefresh} 
             variant="outline" 
             size="sm"
             className="flex items-center gap-1"
@@ -26,7 +39,7 @@ export default function Dashboard() {
             <RefreshCw size={16} /> Refresh
           </Button>
           <Button 
-            onClick={startAllTasks}
+            onClick={handleStartTasks}
             size="sm"
             className="flex items-center gap-1"
             disabled={!hasSelectedWallets || isRunning}
@@ -34,7 +47,7 @@ export default function Dashboard() {
             <Play size={16} /> Start Tasks
           </Button>
           <Button 
-            onClick={stopAllTasks}
+            onClick={handleStopTasks}
             variant="destructive"
             size="sm"
             className="flex items-center gap-1"
