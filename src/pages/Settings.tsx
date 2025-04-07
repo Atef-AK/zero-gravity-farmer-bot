@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Refresh, Settings as SettingsIcon } from "lucide-react";
+import { Save, RefreshCw, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -164,7 +164,7 @@ export default function Settings() {
             className="flex items-center gap-1"
             onClick={resetToDefaults}
           >
-            <Refresh className="h-4 w-4" /> Reset to Defaults
+            <RefreshCw className="h-4 w-4" /> Reset to Defaults
           </Button>
           
           <Button 
