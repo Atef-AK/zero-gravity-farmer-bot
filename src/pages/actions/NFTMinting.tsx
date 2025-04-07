@@ -1,294 +1,296 @@
 
-import { useState, useRef } from "react";
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useApp } from "@/contexts/AppContext";
-import { FileImage, Upload, AlertCircle, CheckCircle } from "lucide-react";
-import { toast } from "sonner";
-import { mintNFT, estimateGasFee } from "@/utils/web3";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { useApp } from "@/contexts/AppContext";
+import { Upload, FileUp, Check, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
+import { mintNFT, estimateGas } from '@/utils/web3';
 
 export default function NFTMinting() {
-  const { selectedWallets, startAllTasks } = useApp();
-  const [isMinting, setIsMinting] = useState(false);
-  const [nftType, setNftType] = useState("ERC721");
-  const [nftName, setNftName] = useState("0G NFT");
-  const [nftDescription, setNftDescription] = useState("A unique NFT on the Newton testnet");
-  const [gasEstimate, setGasEstimate] = useState("");
-  const [mintingResults, setMintingResults] = useState([]);
-  const [imagePreview, setImagePreview] = useState("");
-  const fileInputRef = useRef(null);
-  
+  const { selectedWallets } = useApp();
+  const [nftName, setNftName] = useState("");
+  const [nftDescription, setNftDescription] = useState("");
+  const [nftType, setNftType] = useState("erc721");
+  const [nftImage, setNftImage] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [minting, setMinting] = useState(false);
+  const [gasEstimate, setGasEstimate] = useState<number | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
+  const [txStatus, setTxStatus] = useState<"idle" | "pending" | "success" | "error">("idle");
+
   const hasSelectedWallets = selectedWallets.length > 0;
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current.click();
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        // Convert ArrayBuffer to string if needed
+        const result = typeof event.target.result === 'string' 
+          ? event.target.result 
+          : new TextDecoder().decode(event.target.result as ArrayBuffer);
+          
+        setNftImage(result);
+      }
+      setUploading(false);
+    };
+    
+    reader.onerror = () => {
+      toast.error("Failed to read image file");
+      setUploading(false);
+    };
+    
+    reader.readAsDataURL(file);
   };
 
   const handleEstimateGas = async () => {
-    if (!hasSelectedWallets) return;
-    
-    try {
-      const estimate = await estimateGasFee(selectedWallets[0].privateKey, nftType);
-      setGasEstimate(`≈ ${estimate} A0GI`);
-      toast.success("Gas fee estimated successfully");
-    } catch (error) {
-      console.error("Gas estimation error:", error);
-      toast.error("Failed to estimate gas fee");
-    }
-  };
-
-  const handleMint = async () => {
-    if (!hasSelectedWallets) return;
-    
-    setIsMinting(true);
-    setMintingResults([]);
-    
-    try {
-      const results = [];
-      
-      for (const wallet of selectedWallets) {
-        toast.loading(`Minting NFT using wallet ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`);
-        
-        const mintData = {
-          name: nftName,
-          description: nftDescription,
-          type: nftType,
-          imageData: imagePreview || null
-        };
-        
-        const result = await mintNFT(wallet.privateKey, mintData);
-        
-        const walletResult = {
-          address: wallet.address,
-          success: result.success,
-          txHash: result.txHash,
-          tokenId: result.tokenId,
-          timestamp: new Date().toISOString()
-        };
-        
-        results.push(walletResult);
-        
-        if (result.success) {
-          toast.success(`NFT successfully minted! Token ID: ${result.tokenId}, TX: ${result.txHash.slice(0, 10)}...`);
-        } else {
-          toast.error("Minting failed.");
-        }
-      }
-      
-      setMintingResults(results);
-    } catch (error) {
-      console.error("Minting error:", error);
-      toast.error(error.message || "Failed to mint NFT");
-    } finally {
-      setIsMinting(false);
-    }
-  };
-
-  const startAutoMinting = () => {
     if (!hasSelectedWallets) {
-      toast.error("Please select at least one wallet first");
+      toast.error("Please select at least one wallet");
       return;
     }
     
-    startAllTasks();
-    toast.success("Automatic minting tasks started for selected wallets");
+    if (!nftName || !nftDescription || !nftImage) {
+      toast.error("Please fill out all NFT details");
+      return;
+    }
+    
+    try {
+      // Estimate gas for first selected wallet
+      const wallet = selectedWallets[0];
+      const estimate = await estimateGas({
+        type: nftType,
+        name: nftName,
+        description: nftDescription,
+        image: nftImage
+      }, wallet.address);
+      
+      setGasEstimate(estimate);
+      toast.success("Gas estimation completed");
+    } catch (error) {
+      console.error("Gas estimation failed:", error);
+      toast.error("Failed to estimate gas");
+    }
+  };
+
+  const handleMintNFT = async () => {
+    if (!hasSelectedWallets) {
+      toast.error("Please select at least one wallet");
+      return;
+    }
+    
+    if (!nftName || !nftDescription || !nftImage) {
+      toast.error("Please fill out all NFT details");
+      return;
+    }
+    
+    setMinting(true);
+    setTxStatus("pending");
+    
+    try {
+      // Use the first selected wallet to mint
+      const wallet = selectedWallets[0];
+      
+      const metadata = {
+        type: nftType,
+        name: nftName,
+        description: nftDescription,
+        image: nftImage
+      };
+      
+      const txHash = await mintNFT(metadata, wallet.address, wallet.privateKey);
+      setTransactionHash(txHash);
+      setTxStatus("success");
+      
+      toast.success("NFT minted successfully");
+      
+      // Reset form
+      setNftName("");
+      setNftDescription("");
+      setNftImage("");
+      setNftType("erc721");
+    } catch (error) {
+      console.error("NFT minting failed:", error);
+      toast.error("Failed to mint NFT");
+      setTxStatus("error");
+    } finally {
+      setMinting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">NFT Minting</h1>
-          <p className="text-muted-foreground">Mint NFTs on the Newton testnet</p>
-        </div>
-        <Button onClick={startAutoMinting} disabled={!hasSelectedWallets || isMinting}>
-          Start Auto-Minting
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">NFT Minting</h1>
+        <p className="text-muted-foreground">Create and mint new NFTs for your wallets.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-border/40">
+        <Card>
           <CardHeader>
-            <CardTitle>Mint NFT</CardTitle>
-            <CardDescription>
-              Mint a new NFT on the Newton testnet
-            </CardDescription>
+            <CardTitle>NFT Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="nft-type">NFT Type</Label>
-                <Select
-                  value={nftType}
-                  onValueChange={setNftType}
-                >
-                  <SelectTrigger id="nft-type">
-                    <SelectValue placeholder="Select NFT Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ERC721">ERC-721 (Single NFT)</SelectItem>
-                    <SelectItem value="ERC1155">ERC-1155 (Multiple NFT)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="nft-name">NFT Name</Label>
-                <Input
-                  id="nft-name"
-                  value={nftName}
-                  onChange={(e) => setNftName(e.target.value)}
-                  placeholder="Enter NFT name"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="nft-description">Description</Label>
-                <Textarea
-                  id="nft-description"
-                  value={nftDescription}
-                  onChange={(e) => setNftDescription(e.target.value)}
-                  placeholder="Enter NFT description"
-                  rows={3}
-                />
-              </div>
-              
-              <div>
-                <Label>NFT Image</Label>
-                <div 
-                  className={`border-2 border-dashed border-border/50 rounded-md p-6 cursor-pointer transition-colors hover:border-bot-primary/50 ${imagePreview ? 'bg-bot-primary/5' : ''}`}
-                  onClick={triggerFileInput}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageUpload}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  
-                  {imagePreview ? (
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <div className="relative w-40 h-40">
-                        <img 
-                          src={imagePreview} 
-                          alt="NFT Preview" 
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <p className="text-sm text-center text-bot-primary">
-                        <Upload className="h-4 w-4 inline mr-1" />
-                        Click to change image
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <FileImage className="h-20 w-20 text-bot-primary" />
-                      <p className="text-center font-medium">Upload NFT Image</p>
-                      <p className="text-sm text-muted-foreground text-center">
-                        Click to upload or drag and drop
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="nft-type">NFT Type</Label>
+              <Select value={nftType} onValueChange={setNftType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select NFT Standard" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="erc721">ERC-721 (Unique NFT)</SelectItem>
+                  <SelectItem value="erc1155">ERC-1155 (Multi-token Standard)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="flex flex-col space-y-2">
-              <div className="flex items-center justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={handleEstimateGas}
-                  disabled={!hasSelectedWallets}
-                >
-                  Estimate Gas Fee
-                </Button>
-                {gasEstimate && (
-                  <Badge variant="outline" className="text-amber-500">
-                    {gasEstimate}
-                  </Badge>
+            <div className="space-y-2">
+              <Label htmlFor="nft-name">Name</Label>
+              <Input 
+                id="nft-name" 
+                placeholder="My Awesome NFT" 
+                value={nftName} 
+                onChange={(e) => setNftName(e.target.value)} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="nft-description">Description</Label>
+              <Textarea 
+                id="nft-description" 
+                placeholder="Describe your NFT..." 
+                value={nftDescription} 
+                onChange={(e) => setNftDescription(e.target.value)} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="nft-image">Image</Label>
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md p-6 cursor-pointer hover:border-gray-400 transition-all">
+                {nftImage ? (
+                  <div className="space-y-2">
+                    <img 
+                      src={nftImage} 
+                      alt="NFT Preview" 
+                      className="max-h-40 mx-auto rounded-md" 
+                    />
+                    <Button variant="outline" onClick={() => setNftImage("")} className="w-full">
+                      Change Image
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center cursor-pointer">
+                    <Upload size={32} className="mb-2 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground mb-2">
+                      {uploading ? "Uploading..." : "Click to upload image"}
+                    </span>
+                    <Input 
+                      id="nft-image" 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handleImageUpload} 
+                      disabled={uploading} 
+                    />
+                    <Button variant="outline" disabled={uploading}>
+                      <FileUp className="mr-2 h-4 w-4" /> Browse Files
+                    </Button>
+                  </label>
                 )}
               </div>
-              
-              <Button 
-                className="w-full" 
-                disabled={!hasSelectedWallets || isMinting}
-                onClick={handleMint}
-              >
-                <FileImage className="w-4 h-4 mr-2" />
-                {isMinting ? "Minting..." : "Mint NFT"}
-              </Button>
-              
-              {!hasSelectedWallets && (
-                <p className="text-sm text-center text-amber-400">
-                  Please select at least one wallet first
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="border-border/40">
+
+        <Card>
           <CardHeader>
-            <CardTitle>Minting Results</CardTitle>
-            <CardDescription>
-              Transaction details for your minted NFTs
-            </CardDescription>
+            <CardTitle>Mint Configuration</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 max-h-[500px] overflow-y-auto">
-            {mintingResults.length > 0 ? (
-              <div className="space-y-3">
-                {mintingResults.map((result, index) => (
-                  <div 
-                    key={index} 
-                    className={`p-3 rounded-lg border ${result.success ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {result.success ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
-                      ) : (
-                        <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-                      )}
-                      <div className="space-y-1 w-full">
-                        <div className="flex justify-between items-center">
-                          <p className="font-medium">Wallet: {result.address.slice(0, 6)}...{result.address.slice(-4)}</p>
-                          <Badge variant={result.success ? "success" : "destructive"}>
-                            {result.success ? "Success" : "Failed"}
-                          </Badge>
-                        </div>
-                        {result.success && (
-                          <>
-                            <p className="text-xs">Token ID: <span className="font-mono">{result.tokenId}</span></p>
-                            <p className="text-xs">TX Hash: <span className="font-mono">{result.txHash.slice(0, 18)}...</span></p>
-                            <p className="text-xs text-muted-foreground">{new Date(result.timestamp).toLocaleString()}</p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          <CardContent className="space-y-4">
+            <div className="p-4 bg-muted rounded-md">
+              <h3 className="font-medium mb-2">Selected Wallet</h3>
+              {hasSelectedWallets ? (
+                <div>
+                  <p className="text-sm mb-1">
+                    {selectedWallets.length} wallet{selectedWallets.length > 1 ? 's' : ''} selected
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Using {selectedWallets[0]?.address.slice(0, 6)}...{selectedWallets[0]?.address.slice(-4)} for minting
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No wallets selected</p>
+              )}
+            </div>
+
+            {gasEstimate !== null && (
+              <div className="p-4 border rounded-md">
+                <h3 className="font-medium mb-2">Gas Estimate</h3>
+                <p className="text-sm">
+                  Estimated gas: <span className="font-mono">{gasEstimate.toLocaleString()}</span>
+                </p>
               </div>
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                <FileImage className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                <p>No minting transactions yet</p>
-                <p className="text-sm">Mint an NFT to see transaction details</p>
+            )}
+
+            <div className="space-y-2">
+              <Button 
+                onClick={handleEstimateGas} 
+                disabled={!hasSelectedWallets || !nftName || !nftDescription || !nftImage} 
+                variant="outline" 
+                className="w-full"
+              >
+                Estimate Gas
+              </Button>
+              
+              <Button 
+                onClick={handleMintNFT} 
+                disabled={!hasSelectedWallets || !nftName || !nftDescription || !nftImage || minting} 
+                className="w-full"
+              >
+                {minting ? "Minting..." : "Mint NFT"}
+              </Button>
+            </div>
+
+            {txStatus !== "idle" && (
+              <div className={`p-4 rounded-md ${
+                txStatus === "pending" ? "bg-yellow-100/20 border border-yellow-300/30" : 
+                txStatus === "success" ? "bg-green-100/20 border border-green-300/30" : 
+                "bg-red-100/20 border border-red-300/30"
+              }`}>
+                <div className="flex items-center">
+                  {txStatus === "pending" && <AlertCircle size={16} className="text-yellow-500 mr-2" />}
+                  {txStatus === "success" && <Check size={16} className="text-green-500 mr-2" />}
+                  {txStatus === "error" && <AlertCircle size={16} className="text-red-500 mr-2" />}
+                  
+                  <h3 className="font-medium">
+                    {txStatus === "pending" ? "Transaction Pending" : 
+                     txStatus === "success" ? "Transaction Successful" : 
+                     "Transaction Failed"}
+                  </h3>
+                </div>
+                
+                {transactionHash && (
+                  <div className="mt-2">
+                    <p className="text-sm font-medium">Transaction Hash:</p>
+                    <p className="text-xs font-mono break-all mt-1">{transactionHash}</p>
+                    <Button 
+                      variant={txStatus === "success" ? "default" : "outline"} 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={() => window.open(`https://chainscan-newton.0g.ai/tx/${transactionHash}`, '_blank')}
+                    >
+                      View on Explorer
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
