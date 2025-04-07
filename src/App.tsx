@@ -11,6 +11,9 @@ import Wallets from "./pages/Wallets";
 import Contracts from "./pages/Contracts";
 import Tasks from "./pages/Tasks";
 import Statistics from "./pages/Statistics";
+import FileUpload from "./pages/actions/FileUpload";
+import DomainRegistration from "./pages/actions/DomainRegistration";
+import NFTMinting from "./pages/actions/NFTMinting";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,10 +32,9 @@ const App = () => (
               <Route path="contracts" element={<Contracts />} />
               <Route path="tasks" element={<Tasks />} />
               <Route path="statistics" element={<Statistics />} />
-              {/* Additional routes for other pages */}
-              <Route path="actions/upload" element={<Dashboard />} />
-              <Route path="actions/domains" element={<Dashboard />} />
-              <Route path="actions/nfts" element={<Dashboard />} />
+              <Route path="actions/upload" element={<FileUpload />} />
+              <Route path="actions/domains" element={<DomainRegistration />} />
+              <Route path="actions/nfts" element={<NFTMinting />} />
               <Route path="settings" element={<Dashboard />} />
             </Route>
             <Route path="*" element={<NotFound />} />
