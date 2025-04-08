@@ -505,7 +505,7 @@ export const registerDomain = async (privateKey: string, domainName: string) => 
 };
 
 // Upload file to 0G Storage
-export const uploadFile = async (privateKey: string, fileData: Blob) => {
+export const uploadFile = async (privateKey: string, fileData: File) => {
   try {
     console.log('Uploading file to 0G Storage');
     
